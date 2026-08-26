@@ -299,7 +299,7 @@
     <div class="section-title">Prime pagine in edicola <span class="status">via Giornalone.it</span></div>
     <div class="live-grid" id="prime-pagine"></div>
 
-    <div class="section-title">Titoli — Italia <span class="status" id="status-italia"></span></div>
+    <div class="section-title">Titoli — Italia <span><button class="load-btn" onclick="loadCategory('italia')" style="padding:3px 8px;font-size:9px;margin-right:8px;">↻ Aggiorna</button><span class="status" id="status-italia"></span></span></div>
     <div class="feed-col" id="feed-italia"></div>
   </div>
 
@@ -307,22 +307,22 @@
     <div class="section-title">Prime pagine — Estero <span class="status">via Giornalone.it</span></div>
     <div class="live-grid" id="prime-pagine-estero"></div>
 
-    <div class="section-title">Titoli — Estero <span class="status" id="status-estero"></span></div>
+    <div class="section-title">Titoli — Estero <span><button class="load-btn" onclick="loadCategory('estero')" style="padding:3px 8px;font-size:9px;margin-right:8px;">↻ Aggiorna</button><span class="status" id="status-estero"></span></span></div>
     <div class="feed-col" id="feed-estero"></div>
   </div>
 
   <div class="panel" id="panel-ai">
-    <div class="section-title">Intelligenza Artificiale <span class="status" id="status-ai"></span></div>
+    <div class="section-title">Intelligenza Artificiale <span><button class="load-btn" onclick="loadCategory('ai')" style="padding:3px 8px;font-size:9px;margin-right:8px;">↻ Aggiorna</button><span class="status" id="status-ai"></span></span></div>
     <div class="feed-col" id="feed-ai"></div>
   </div>
 
   <div class="panel" id="panel-finanza">
-    <div class="section-title">Finanza e mercati <span class="status" id="status-finanza"></span></div>
+    <div class="section-title">Finanza e mercati <span><button class="load-btn" onclick="loadCategory('finanza')" style="padding:3px 8px;font-size:9px;margin-right:8px;">↻ Aggiorna</button><span class="status" id="status-finanza"></span></span></div>
     <div class="feed-col" id="feed-finanza"></div>
   </div>
 
   <div class="panel" id="panel-design">
-    <div class="section-title">Design <span class="status" id="status-design"></span></div>
+    <div class="section-title">Design <span><button class="load-btn" onclick="loadCategory('design')" style="padding:3px 8px;font-size:9px;margin-right:8px;">↻ Aggiorna</button><span class="status" id="status-design"></span></span></div>
     <div class="feed-col" id="feed-design"></div>
   </div>
 
@@ -426,15 +426,15 @@ const loaded = {};
 // rss2json è un servizio pensato per leggere RSS da browser (niente problemi CORS,
 // parsing già fatto lato server); i proxy generici restano come riserva.
 const CORS_PROXIES = [
-  {name:'rss2json', make: u => 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(u), isJson:true},
-  {name:'codetabs', make: u => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u)},
-  {name:'allorigins', make: u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u)},
-  {name:'corsproxy.io', make: u => 'https://corsproxy.io/?url=' + encodeURIComponent(u)}
+  {name:'rss2json', make: u => 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(u) + '&_=' + Date.now(), isJson:true},
+  {name:'codetabs', make: u => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u + (u.includes('?')?'&':'?') + '_cb=' + Date.now())},
+  {name:'allorigins', make: u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u) + '&_=' + Date.now()},
+  {name:'corsproxy.io', make: u => 'https://corsproxy.io/?url=' + encodeURIComponent(u) + '&_=' + Date.now()}
 ];
 
 async function fetchWithTimeout(url, ms){
   return Promise.race([
-    fetch(url),
+    fetch(url, {cache: 'no-store'}),
     new Promise((_, reject) => setTimeout(()=>reject(new Error('timeout')), ms))
   ]);
 }
