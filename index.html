@@ -303,7 +303,10 @@
   </div>
 
   <div class="panel" id="panel-estero">
-    <div class="section-title">Rassegna estera <span class="status" id="status-estero"></span></div>
+    <div class="section-title">Prime pagine — Estero <span class="status">via Giornalone.it</span></div>
+    <div class="live-grid" id="prime-pagine-estero"></div>
+
+    <div class="section-title">Titoli — Estero <span class="status" id="status-estero"></span></div>
     <div class="feed-col" id="feed-estero"></div>
   </div>
 
@@ -452,6 +455,25 @@ async function fetchFeed(url){
   throw err;
 }
 
+// ---------- classificazione automatica per tag ----------
+const TAG_RULES = [
+  {tag:'Finanza', color:'#2c4770', words:['borsa','mercat','finanz','spread','pil','inflazione','bce','fed','azioni','obbligazi','euro','dollaro','banca','btp','wall street','ipo','bilancio','tassi']},
+  {tag:'Politica', color:'#7a3b1e', words:['governo','ministr','parlamento','elezion','decreto','senato','camera dei deput','premier','manovra','partito']},
+  {tag:'Esteri', color:'#4a5d3a', words:['guerra','ucraina','gaza','medio oriente','usa ','trump','onu','nato','ambasciat','pasdaran','israele']},
+  {tag:'Cronaca', color:'#8b2e2e', words:['arrest','indagat','omicidio','incident','carcere','processo','pm ',' morto',' morta','ferito','furto','rapina']},
+  {tag:'Sport', color:'#1e6b4f', words:['calcio','gol','campionato','serie a','olimpiad','tennis','ciclismo','nuoto','atleta','mondiali']},
+  {tag:'Cultura', color:'#6a4c93', words:['cinema','film','musica','arte','libro','mostra','teatro','venezia']},
+  {tag:'Tecnologia', color:'#b26b00', words:['ai ','intelligenza artificiale','chatgpt','tech','app','smartphone','robot']},
+  {tag:'Scienza', color:'#2a7a7a', words:['scienza','spazio','clima','salute','ricerca','studio','vaccino','astronom']}
+];
+function classifyTag(title){
+  const t = title.toLowerCase();
+  for(const rule of TAG_RULES){
+    if(rule.words.some(w=>t.includes(w))) return rule;
+  }
+  return null;
+}
+
 function timeLabel(pubDate){
   if(!pubDate) return '';
   const d = new Date(pubDate);
@@ -467,16 +489,13 @@ async function loadCategory(cat){
   container.innerHTML = '';
   const sources = FEEDS[cat];
   let okCount = 0;
+  let allItems = []; // per l'ordinamento cronologico across-fonti
 
   for(const src of sources){
     try{
       const items = await fetchFeed(src.url);
       items.forEach(item=>{
-        const row = document.createElement('div');
-        row.className = 'headline';
-        row.innerHTML = `<span class="dispatch">${timeLabel(item.pubDate)}</span>
-          <div><a href="${item.link}" target="_blank" rel="noopener">${item.title}</a><span class="src">${src.name}</span></div>`;
-        container.appendChild(row);
+        allItems.push({...item, srcName: src.name, date: new Date(item.pubDate)});
       });
       okCount++;
     }catch(e){
@@ -487,7 +506,25 @@ async function loadCategory(cat){
       container.appendChild(row);
     }
   }
-  status.textContent = okCount+'/'+sources.length+' fonti caricate · aggiornato '+new Date().toLocaleTimeString('it-IT');
+
+  // ordina tutte le notizie di tutte le fonti per data decrescente (più recenti in cima)
+  allItems.sort((a,b)=>{
+    const ta = isNaN(a.date) ? 0 : a.date.getTime();
+    const tb = isNaN(b.date) ? 0 : b.date.getTime();
+    return tb - ta;
+  });
+
+  allItems.forEach(item=>{
+    const row = document.createElement('div');
+    row.className = 'headline';
+    const tagInfo = classifyTag(item.title);
+    const tagHtml = tagInfo ? `<span style="font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:0.5px;color:#fff;background:${tagInfo.color};padding:2px 6px;border-radius:2px;margin-left:8px;">${tagInfo.tag}</span>` : '';
+    row.innerHTML = `<span class="dispatch">${timeLabel(item.pubDate)}</span>
+      <div><a href="${item.link}" target="_blank" rel="noopener">${item.title}</a><span class="src">${item.srcName}</span>${tagHtml}</div>`;
+    container.appendChild(row);
+  });
+
+  status.textContent = okCount+'/'+sources.length+' fonti caricate · ordinate per orario · aggiornato '+new Date().toLocaleTimeString('it-IT');
 }
 
 // ---------- recap ----------
@@ -549,6 +586,40 @@ PRIME_PAGINE.forEach(p=>{
   card.style.cssText = 'display:block;border:1px solid var(--line);background:#fff;padding:14px;text-decoration:none;color:var(--ink);font-family:var(--serif);font-size:14px;text-align:center;';
   card.textContent = p.name;
   primeGrid.appendChild(card);
+});
+
+// ---------- prime pagine estere (Giornalone) ----------
+const PRIME_PAGINE_ESTERO = [
+  {name:'The New York Times', country:'USA', slug:'the-new-york-times'},
+  {name:'The Washington Post', country:'USA', slug:'the-washington-post'},
+  {name:'USA Today', country:'USA', slug:'usa-today'},
+  {name:'Financial Times', country:'UK', slug:'financial-times'},
+  {name:'The Guardian Australia', country:'AUS', slug:'the-guardian-australia'},
+  {name:'Le Monde', country:'FR', slug:'le-monde'},
+  {name:'Le Figaro', country:'FR', slug:'le-figaro'},
+  {name:'Libération', country:'FR', slug:'liberation'},
+  {name:'Bild', country:'DE', slug:'bild'},
+  {name:'Die Welt', country:'DE', slug:'die-welt'},
+  {name:'Süddeutsche Zeitung', country:'DE', slug:'suddeutsche-zeitung'},
+  {name:'Frankfurter Allgemeine', country:'DE', slug:'frankfurter-allgemeine-zeitung'},
+  {name:'El País', country:'ES', slug:'el-pais'},
+  {name:'El Mundo', country:'ES', slug:'el-mundo'},
+  {name:'ABC', country:'ES', slug:'abc-es'},
+  {name:'South China Morning Post', country:'CN/HK', slug:'south-china-morning-post'},
+  {name:'The Japan Times', country:'JP', slug:'the-japan-times'},
+  {name:'Haaretz', country:'IL', slug:'haaretz'},
+  {name:'The Times of India', country:'IN', slug:'the-times-of-india'},
+  {name:'NZZ', country:'CH', slug:'neue-zurcher-zeitung'}
+];
+const primeGridEstero = document.getElementById('prime-pagine-estero');
+PRIME_PAGINE_ESTERO.forEach(p=>{
+  const card = document.createElement('a');
+  card.href = 'https://www.giornalone.it/prima-pagina-'+p.slug+'/';
+  card.target = '_blank';
+  card.rel = 'noopener';
+  card.style.cssText = 'display:block;border:1px solid var(--line);background:#fff;padding:14px;text-decoration:none;color:var(--ink);font-family:var(--serif);font-size:14px;text-align:center;';
+  card.innerHTML = `${p.name}<div style="font-family:var(--mono);font-size:9.5px;color:var(--gray);text-transform:uppercase;margin-top:4px;">${p.country}</div>`;
+  primeGridEstero.appendChild(card);
 });
 
 // auto-load first tab
