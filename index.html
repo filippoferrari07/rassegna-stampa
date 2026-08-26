@@ -425,11 +425,19 @@ const LIVE = [
 const loaded = {};
 // rss2json è un servizio pensato per leggere RSS da browser (niente problemi CORS,
 // parsing già fatto lato server); i proxy generici restano come riserva.
+function bustUrl(u){
+  // aggiunge un parametro univoco DENTRO l'url del feed stesso, cosa che invalida
+  // anche le cache interne dei servizi (es. rss2json) che altrimenti ignorerebbero
+  // parametri aggiunti solo "fuori", sul wrapper del proxy
+  const sep = u.includes('?') ? '&' : '?';
+  return u + sep + '_cb=' + Date.now();
+}
+
 const CORS_PROXIES = [
-  {name:'rss2json', make: u => 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(u) + '&_=' + Date.now(), isJson:true},
-  {name:'codetabs', make: u => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u + (u.includes('?')?'&':'?') + '_cb=' + Date.now())},
-  {name:'allorigins', make: u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u) + '&_=' + Date.now()},
-  {name:'corsproxy.io', make: u => 'https://corsproxy.io/?url=' + encodeURIComponent(u) + '&_=' + Date.now()}
+  {name:'codetabs', make: u => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(bustUrl(u))},
+  {name:'allorigins', make: u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(bustUrl(u))},
+  {name:'corsproxy.io', make: u => 'https://corsproxy.io/?url=' + encodeURIComponent(bustUrl(u))},
+  {name:'rss2json', make: u => 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(bustUrl(u)), isJson:true}
 ];
 
 async function fetchWithTimeout(url, ms){
