@@ -275,6 +275,7 @@
   <button data-tab="finanza">Finanza</button>
   <button data-tab="design">Design</button>
   <button data-tab="dirette">Dirette</button>
+  <button data-tab="social">X / Social</button>
 </nav>
 
 <main>
@@ -329,6 +330,28 @@
     <div class="section-title">Dirette gratuite</div>
     <div class="live-grid" id="live-grid"></div>
     <div class="empty-note">I canali si caricano solo al click su "Avvia" per non consumare banda inutilmente. Alcuni canali potrebbero non essere sempre in diretta.</div>
+  </div>
+
+  <div class="panel" id="panel-social">
+    <div class="section-title">In evidenza <span class="status">fissati manualmente, max 3</span></div>
+    <div id="pinned-row" class="live-grid" style="margin-bottom:8px;"></div>
+    <div class="empty-note" id="pinned-empty">Nessun profilo fissato — clicca "Fissa" su un profilo qui sotto per metterlo in evidenza (fino a 3).</div>
+
+    <div class="section-title" style="margin-top:24px;">Profili istituzionali — Italia <span class="status">20</span></div>
+    <div class="live-grid" id="social-italia"></div>
+
+    <div class="section-title" style="margin-top:24px;">Profili istituzionali — Europa <span class="status">15</span></div>
+    <div class="live-grid" id="social-europa"></div>
+
+    <div class="section-title" style="margin-top:24px;">Profili istituzionali — USA <span class="status">10</span></div>
+    <div class="live-grid" id="social-usa"></div>
+
+    <div class="section-title" style="margin-top:24px;">Profili istituzionali — Resto del mondo <span class="status">5</span></div>
+    <div class="live-grid" id="social-mondo"></div>
+
+    <div class="empty-note" style="margin-top:16px;">
+      Ogni riquadro è un link diretto al profilo su X. Gli embed live delle timeline sono stati tolti perché strutturalmente inaffidabili dal 2023 (X richiede spesso il login anche solo per visualizzare i post, quindi i widget si rompono in modo intermittente). Il rilevamento automatico di nuovi post arriverà con l'automazione futura (fase Telegram).
+    </div>
   </div>
 
 </main>
@@ -625,6 +648,158 @@ PRIME_PAGINE_ESTERO.forEach(p=>{
 // auto-load first tab
 loadCategory('italia');
 document.getElementById('status-italia');
+
+// ---------- X / Social ----------
+const SOCIAL_PROFILES = {
+  italia: [
+    {name:'Palazzo Chigi', handle:'Palazzo_Chigi'},
+    {name:'Quirinale', handle:'Quirinale'},
+    {name:'MEF', handle:'MEF_GOV'},
+    {name:"Banca d'Italia", handle:'bancaditalia'},
+    {name:'Consob', handle:'Consob'},
+    {name:'Farnesina', handle:'ItalyMFA'},
+    {name:'Borsa Italiana', handle:'BorsaItalianaIT'},
+    {name:'ISTAT', handle:'istat_it'},
+    {name:'ANSA', handle:'Agenzia_Ansa'},
+    {name:'Il Sole 24 Ore', handle:'Sole24Ore'},
+    {name:'Milano Finanza', handle:'MilanoFinanza'},
+    {name:'Camera dei Deputati', handle:'Montecitorio'},
+    {name:'Senato', handle:'SenatoStampa'},
+    {name:'Giorgia Meloni', handle:'GiorgiaMeloni'},
+    {name:'Antonio Tajani', handle:'Antonio_Tajani'},
+    {name:'Giancarlo Giorgetti', handle:'GiorgettiGC'},
+    {name:'Cassa Depositi e Prestiti', handle:'gruppocdp'},
+    {name:'Confindustria', handle:'Confindustria'},
+    {name:'Ministero Interno', handle:'Viminale'},
+    {name:'MIMIT', handle:'MinisteroMimit'}
+  ],
+  europa: [
+    {name:'Commissione UE', handle:'EU_Commission'},
+    {name:'BCE', handle:'ecb'},
+    {name:'Consiglio UE', handle:'EUCouncil'},
+    {name:'Parlamento UE', handle:'Europarl_EN'},
+    {name:'Ursula von der Leyen', handle:'vonderleyen'},
+    {name:'Christine Lagarde', handle:'Lagarde'},
+    {name:'Eliseo (Francia)', handle:'Elysee'},
+    {name:'Governo tedesco', handle:'RegSprecher'},
+    {name:'10 Downing Street', handle:'10DowningStreet'},
+    {name:'Bundesbank', handle:'bundesbank'},
+    {name:'Banque de France', handle:'banquedefrance'},
+    {name:'NATO', handle:'NATO'},
+    {name:'Eurostat', handle:'EU_Eurostat'},
+    {name:'Bank of England', handle:'bankofengland'},
+    {name:'Cremlino', handle:'KremlinRussia_E'}
+  ],
+  usa: [
+    {name:'Casa Bianca', handle:'WhiteHouse'},
+    {name:'Dipartimento di Stato', handle:'StateDept'},
+    {name:'Federal Reserve', handle:'federalreserve'},
+    {name:'Tesoro USA', handle:'USTreasury'},
+    {name:'SEC', handle:'SECGov'},
+    {name:'Bureau of Labor Statistics', handle:'BLS_gov'},
+    {name:'Bloomberg', handle:'business'},
+    {name:'Reuters', handle:'Reuters'},
+    {name:'CNBC', handle:'CNBC'},
+    {name:'Dipartimento della Difesa', handle:'DeptofDefense'}
+  ],
+  mondo: [
+    {name:'ONU', handle:'UN'},
+    {name:'FMI', handle:'IMFNews'},
+    {name:'Banca Mondiale', handle:'WorldBank'},
+    {name:'WTO', handle:'wto'},
+    {name:'Ministero Esteri Cina', handle:'MFA_China'}
+  ]
+};
+
+const PIN_KEY = 'rassegna_pinned_profiles';
+function getPinned(){
+  try{ return JSON.parse(localStorage.getItem(PIN_KEY) || '[]'); }catch(e){ return []; }
+}
+function setPinned(list){
+  localStorage.setItem(PIN_KEY, JSON.stringify(list));
+}
+
+function makeSocialCard(profile, region){
+  const card = document.createElement('div');
+  card.className = 'live-card';
+  card.style.background = '#fff';
+  const pinned = getPinned();
+  const isPinned = pinned.some(p=>p.handle===profile.handle);
+  card.innerHTML = `
+    <div class="live-label" style="justify-content:space-between;">
+      <span>${profile.name}</span>
+      <button class="load-btn pin-btn" data-handle="${profile.handle}" data-name="${profile.name.replace(/"/g,'&quot;')}" style="padding:4px 8px;font-size:10px;">${isPinned ? 'Sfissa' : 'Fissa'}</button>
+    </div>
+    <a href="https://twitter.com/${profile.handle}" target="_blank" rel="noopener"
+       style="display:block;padding:22px 14px;text-align:center;text-decoration:none;color:var(--ink);font-family:var(--serif);font-size:15px;">
+      @${profile.handle}
+      <div style="font-family:var(--mono);font-size:10px;color:var(--gray);text-transform:uppercase;margin-top:6px;">Apri profilo su X →</div>
+    </a>`;
+  card.dataset.handle = profile.handle;
+  return card;
+}
+
+function renderSocialGrids(){
+  ['italia','europa','usa','mondo'].forEach(region=>{
+    const container = document.getElementById('social-'+region);
+    container.innerHTML = '';
+    SOCIAL_PROFILES[region].forEach(profile=>{
+      container.appendChild(makeSocialCard(profile, region));
+    });
+  });
+  renderPinnedRow();
+  attachPinListeners();
+}
+
+function renderPinnedRow(){
+  const row = document.getElementById('pinned-row');
+  const emptyMsg = document.getElementById('pinned-empty');
+  const pinned = getPinned();
+  row.innerHTML = '';
+  emptyMsg.style.display = pinned.length ? 'none' : 'block';
+  pinned.forEach(p=>{
+    row.appendChild(makeSocialCard(p, 'pinned'));
+  });
+}
+
+function attachPinListeners(){
+  document.querySelectorAll('.pin-btn').forEach(btn=>{
+    btn.onclick = ()=>{
+      const handle = btn.dataset.handle;
+      const name = btn.dataset.name;
+      let pinned = getPinned();
+      const already = pinned.some(p=>p.handle===handle);
+      if(already){
+        pinned = pinned.filter(p=>p.handle!==handle);
+      }else{
+        if(pinned.length >= 3){
+          alert('Puoi fissare al massimo 3 profili. Sfissane uno prima di aggiungerne un altro.');
+          return;
+        }
+        pinned.push({handle, name});
+      }
+      setPinned(pinned);
+      renderPinnedRow();
+      attachPinListeners();
+      // aggiorna anche l'etichetta del pulsante nella griglia principale corrispondente
+      document.querySelectorAll('.pin-btn[data-handle="'+handle+'"]').forEach(b=>{
+        b.textContent = getPinned().some(p=>p.handle===handle) ? 'Sfissa' : 'Fissa';
+      });
+    };
+  });
+}
+
+let socialLoaded = false;
+document.querySelectorAll('nav.tabs button').forEach(btn=>{
+  if(btn.dataset.tab === 'social'){
+    btn.addEventListener('click', ()=>{
+      if(!socialLoaded){
+        socialLoaded = true;
+        renderSocialGrids();
+      }
+    });
+  }
+});
 </script>
 
 </body>
